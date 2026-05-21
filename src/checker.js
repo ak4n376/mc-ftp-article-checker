@@ -4,7 +4,7 @@
 (function () {
 
   // ホスティング先が決まったら実際の URL に変更する
-  var CHECKER_ORIGIN = 'https://ak4n376.github.io/magacol-check-tool';
+  var CHECKER_ORIGIN = 'https://ak4n376.github.io/mc-ftp-article-checker';
   var CONFIG_URL = CHECKER_ORIGIN + '/src/config.json';
 
   // 既存パネルを削除（2回クリックしても重複しないように）

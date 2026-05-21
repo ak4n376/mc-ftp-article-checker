@@ -9,14 +9,14 @@
 
 // ========== ブックマーク登録用コード（ここから） ==========
 
-// javascript:(function(){var s=document.createElement('script');s.src='https://ak4n376.github.io/magacol-check-tool/src/checker.js?v='+Date.now();document.head.appendChild(s);})();
+// javascript:(function(){var s=document.createElement('script');s.src='https://ak4n376.github.io/mc-ftp-article-checker/src/checker.js?v='+Date.now();document.head.appendChild(s);})();
 
 // ========== ここまで ==========
 
 // --- 以下は読みやすい展開版 ---
 
 (function () {
-  var CHECKER_URL = 'https://ak4n376.github.io/magacol-check-tool/src/checker.js';
+  var CHECKER_URL = 'https://ak4n376.github.io/mc-ftp-article-checker/src/checker.js';
   var s = document.createElement('script');
   s.src = CHECKER_URL + '?v=' + Date.now();
   document.head.appendChild(s);
