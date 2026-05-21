@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>記事チェッカー — ローカルテストランナー</title>
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+h1 { font-size: 16px; margin-bottom: 12px; }
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+button {
+  padding: 10px 24px; background: #990033; color: #fff;
+  border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
+}
+button:hover { background: #770022; }
+#editToggle {
+  background: #fff; color: #555; border: 2px solid #ccc;
+}
+#editToggle:hover { border-color: #999; }
+#editToggle.active {
+  background: #e8f4e8; color: #1a7f37; border-color: #1a7f37; font-weight: bold;
+}
+.edit-hint {
+  font-size: 12px; color: #1a7f37; display: none;
+}
+.edit-hint.visible { display: inline; }
+.note { font-size: 12px; color: #666; margin-top: 10px; }
+iframe {
+  width: 100%; height: calc(100vh - 130px);
+  border: 1px solid #ccc; background: #fff; margin-top: 12px;
+}
+iframe.editing { border-color: #1a7f37; outline: 2px solid #1a7f37; }
+</style>
+</head>
+<body>
+
+<h1>記事チェッカー ローカルテスト</h1>
+<div class="toolbar">
+  <button onclick="runCheck()">チェック実行</button>
+  <button id="editToggle" onclick="toggleEdit()">✏️ 編集モード</button>
+  <span class="edit-hint" id="editHint">編集モードON — テキストをクリックして直接編集できます</span>
+</div>
+<p class="note">
+  ※ このファイルと同じ階層に <code>preview-sample.html</code> を置き、<br>
+  ブラウザで <code>runner.html</code> を開いてから「チェック実行」をクリックしてください。
+</p>
+
+<iframe id="preview" src="preview-sample.html"></iframe>
+
+<script>
+// ローカルテスト用のインライン設定（config.json の内容と同期させること）
+var INLINE_CONFIG = {
+  media_mapping: {
+    "JJ":      "jj-jj.net",
+    "VERY":    "veryweb.jp",
+    "CLASSY.": "classy-online.jp",
+    "STORY":   "storyweb.jp",
+    "bis":     "bisweb.jp",
+    "Mart":    "mart-magazine.com",
+    "美ST":    "be-story.jp"
+  },
+  ng_phrases: [
+    "☎", "☏", "📞",
+    "問い合わせ", "問合わせ", "問合せ", "Contact", "contact",
+    "https", "http",
+    "ここで買えます", "ここで買えます", "kokode買えます", "購入はこちら",
+    "&#8230;", "&#8217;", "&amp;"
+  ],
+  ng_phrases_warn: [
+    "kokode", "KOKODE",
+    "買えるCLASSY.", "買えるclassy.", "買えるCLASSY", "買えるクラッシィ",
+    "VERY STORE", "VERYSTORE", "Very Store",
+    "予約", "発売", "新発売", "発売中", "発売日",
+    "定期購読", "年間購読", "定期購読サービス",
+    "プレゼント", "present", "Present", "PRESENT", "プレゼント企画",
+    "ギフト", "付録", "特典",
+    "amazon", "Amazon", "AMAZON", "アマゾン",
+    "チェキ", "cheki", "Cheki", "CHEKI",
+    "楽天", "Rakuten", "楽天市場", "楽天ブックス",
+    "KOBUNSHA", "Kobunsha",
+    "URL", "url", "Url", "ＵＲＬ",
+    "TEL", "Tel", "tel", "ＴＥＬ", "電話", "Tel.",
+    "公式", "オフィシャル", "official", "Official", "OFFICIAL", "公式サイト", "公式HP",
+    "前編", "ぜんぺん", "前篇", "Part1", "part1", "PART1",
+    "後編", "後篇", "Part2", "part2", "PART2",
+    "こちら", "コチラ",
+    "SHOP LIST", "SHOPLIST", "Shop List", "shop list", "ショップリスト", "ショップ一覧", "取扱店",
+    "コールセンター", "カスタマーセンター",
+    "この続きは", "続きは", "続きはこちら", "つづきは",
+    "メール", "mail", "Mail", "MAIL", "e-mail", "E-mail", "Eメール", "メールアドレス",
+    "ウェブサイト", "Webサイト", "WEBサイト", "webサイト", "website", "Website", "WEBSITE",
+    "HP", "ホームページ",
+    "サイン", "直筆サイン",
+    "VERY NaVY", "VERY NAVY", "VERY Navy", "VERYnavy", "ヴェリィネイビー", "ベリーネイビー",
+    "動画", "どうが", "ムービー", "movie", "Movie", "MOVIE", "video", "Video", "VIDEO", "映像",
+    "春", "spring", "Spring", "SPRING",
+    "夏", "summer", "Summer", "SUMMER",
+    "秋", "autumn", "fall", "Autumn", "Fall", "AUTUMN", "FALL",
+    "冬", "winter", "Winter", "WINTER",
+    "今日", "きょう", "本日"
+  ],
+  related_links_count: 5,
+  related_link_prefix: "▶",
+  pr_check: {
+    enabled: true,
+    proxy_url: "https://corsproxy.io/?",
+    pr_selector: "#Read_st"
+  }
+};
+
+function toggleEdit() {
+  var iframe = document.getElementById('preview');
+  var btn = document.getElementById('editToggle');
+  var hint = document.getElementById('editHint');
+  var isEditing = iframe.contentDocument.designMode === 'on';
+
+  if (isEditing) {
+    iframe.contentDocument.designMode = 'off';
+    btn.classList.remove('active');
+    btn.textContent = '✏️ 編集モード';
+    hint.classList.remove('visible');
+    iframe.classList.remove('editing');
+  } else {
+    // チェック結果パネルが出ていたら一旦消す
+    var panel = iframe.contentDocument.getElementById('magacol-checker-panel');
+    if (panel) panel.parentNode.removeChild(panel);
+
+    iframe.contentDocument.designMode = 'on';
+    btn.classList.add('active');
+    btn.textContent = '✏️ 編集モードON';
+    hint.classList.add('visible');
+    iframe.classList.add('editing');
+  }
+}
+
+function runCheck() {
+  // 編集モードを自動的にOFFにしてからチェック
+  var iframe = document.getElementById('preview');
+  if (iframe.contentDocument.designMode === 'on') {
+    toggleEdit();
+  }
+  var iframe = document.getElementById('preview');
+  var iwin = iframe.contentWindow;
+
+  // iframe 内のウィンドウに設定を渡す（fetch をスキップするフック）
+  iwin.MAGACOL_CONFIG = INLINE_CONFIG;
+  // iframe 内では fetch が制限される場合があるため、親 window の fetch を注入する
+  iwin._MAGACOL_FETCH = window.fetch.bind(window);
+
+  // checker.js を iframe 内のドキュメントに script タグで注入する
+  var doc = iframe.contentDocument || iwin.document;
+  var old = doc.getElementById('magacol-checker-panel');
+  if (old) old.parentNode.removeChild(old);
+
+  var s = doc.createElement('script');
+  // '../src/checker.js' を相対パスで読み込む
+  s.src = '../src/checker.js?v=' + Date.now();
+  doc.head.appendChild(s);
+}
+</script>
+</body>
+</html>

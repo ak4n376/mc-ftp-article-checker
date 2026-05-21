@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>記事チェッカー — インストール</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f5f5f5; color: #333; padding: 40px 20px; }
+.container { max-width: 620px; margin: 0 auto; }
+h1 { font-size: 24px; color: #990033; margin-bottom: 4px; }
+.subtitle { color: #777; font-size: 14px; margin-bottom: 32px; }
+.card { background: #fff; border-radius: 8px; padding: 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.card h2 { font-size: 15px; font-weight: bold; color: #990033; border-bottom: 2px solid #990033; padding-bottom: 8px; margin-bottom: 18px; }
+.step { font-size: 13px; font-weight: bold; color: #444; margin: 18px 0 6px; }
+.step:first-child { margin-top: 0; }
+kbd { background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 1px 6px; font-size: 12px; font-family: monospace; }
+p.desc { font-size: 13px; color: #555; line-height: 1.6; }
+.btn-wrap { margin: 14px 0 6px; }
+a.bookmarklet-btn {
+  display: inline-block;
+  padding: 13px 28px;
+  background: #990033;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgba(153,0,51,0.35);
+  user-select: none;
+  -webkit-user-drag: element;
+}
+a.bookmarklet-btn:hover { background: #770022; }
+.hint { font-size: 12px; color: #999; margin-top: 6px; }
+ul.checks { padding-left: 4px; list-style: none; }
+ul.checks li { font-size: 13px; line-height: 2.2; color: #555; }
+.badge { display: inline-block; border-radius: 2px; padding: 1px 6px; font-size: 11px; color: #fff; margin-right: 6px; vertical-align: middle; }
+.badge-err { background: #990033; }
+.badge-warn { background: #b35c00; }
+.version { font-size: 11px; color: #bbb; text-align: right; margin-top: 16px; }
+.method { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 6px; padding: 14px 16px; margin: 10px 0; }
+.method-label { font-size: 13px; font-weight: bold; color: #444; margin-bottom: 10px; }
+.copy-btn { padding: 8px 18px; background: #555; color: #fff; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
+.copy-btn:hover { background: #333; }
+.manual-steps { margin: 10px 0 0 18px; }
+.manual-steps li { font-size: 13px; color: #555; line-height: 2; }
+textarea#code-box { display: block; width: 100%; height: 72px; margin-top: 10px; font-size: 11px; font-family: monospace; color: #333; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; padding: 8px; resize: none; cursor: text; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>記事チェッカー</h1>
+  <p class="subtitle">WordPress プレビュー画面で使える記事セルフチェックツール</p>
+
+  <div class="card">
+    <h2>インストール方法</h2>
+
+    <p class="step">① ブックマークバーを表示する</p>
+    <p class="desc">Mac Chrome / Edge: <kbd>⌘ Shift B</kbd>&emsp;Windows: <kbd>Ctrl+Shift+B</kbd></p>
+
+    <p class="step">② インストール（どちらか選択）</p>
+
+    <div class="method">
+      <p class="method-label">▶ 方法A：ドラッグ</p>
+      <div class="btn-wrap">
+        <a id="bookmarklet" class="bookmarklet-btn">📋 記事チェッカー</a>
+      </div>
+      <p class="hint">↑ ブックマークバーにドラッグ＆ドロップ</p>
+    </div>
+
+    <div class="method">
+      <p class="method-label">▶ 方法B：コードを手動で登録（ドラッグできない場合）</p>
+      <ol class="manual-steps">
+        <li>ブックマークバーを右クリック →「ページを追加」</li>
+        <li>名前に <strong>記事チェッカー</strong> と入力</li>
+        <li>URL欄を空にして、下のコードを全選択してコピー（<kbd>⌘A</kbd> → <kbd>⌘C</kbd>）して貼り付け</li>
+      </ol>
+      <textarea id="code-box" readonly onclick="this.select()" spellcheck="false"></textarea>
+    </div>
+
+    <p class="step">③ 使い方</p>
+    <p class="desc">WordPress の記事プレビュー画面を開き、ブックマークバーの「📋 記事チェッカー」をクリック</p>
+  </div>
+
+  <div class="card">
+    <h2>チェック内容</h2>
+    <ul class="checks">
+      <li><span class="badge badge-err">要修正</span>媒体名・ドメインの不一致</li>
+      <li><span class="badge badge-err">要修正</span>関連リンク（件数・▶記号・ドメイン・UTMパラメータ・PR記事混入）</li>
+      <li><span class="badge badge-err">要修正</span>NGワード（問い合わせ・URLの直書き など）</li>
+      <li><span class="badge badge-err">要修正</span>電話番号の記載</li>
+      <li><span class="badge badge-warn">要確認</span>確認ワード（季節・発売・公式 など）</li>
+      <li><span class="badge badge-warn">要確認</span>同一画像の重複使用</li>
+      <li><span class="badge badge-warn">要確認</span>テキストの重複</li>
+    </ul>
+  </div>
+
+  <p class="version">magacol 記事チェッカー v1.0</p>
+</div>
+
+<script>
+// ブックマークレット本体（URLローダー）
+// ルール更新は GitHub Pages 側のファイルを更新するだけ。再配布不要。
+function checkerBookmarklet() {
+  var s = document.createElement('script');
+  s.src = 'https://ak4n376.github.io/magacol-check-tool/src/checker.js?v=' + Date.now();
+  document.head.appendChild(s);
+}
+
+// ブックマークレットURL生成
+// encodeURIComponent でエンコードし、改行・特殊文字によるブラウザの誤保存を防ぐ
+var _bookmarkletHref = (function() {
+  var src = '(' + checkerBookmarklet.toString() + ')()';
+  return 'javascript:' + encodeURIComponent(src);
+})();
+
+document.getElementById('bookmarklet').href = _bookmarkletHref;
+document.getElementById('code-box').value = _bookmarkletHref;
+</script>
+</body>
+</html>

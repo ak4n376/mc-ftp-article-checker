@@ -1,0 +1,58 @@
+{
+  "media_mapping": {
+    "JJ": "jj-jj.net",
+    "VERY": "veryweb.jp",
+    "CLASSY.": "classy-online.jp",
+    "STORY": "storyweb.jp",
+    "bis": "bisweb.jp",
+    "Mart": "mart-magazine.com",
+    "美ST": "be-story.jp"
+  },
+  "ng_phrases": [
+    "☎", "☏", "📞",
+    "問い合わせ", "問合わせ", "問合せ", "Contact", "contact",
+    "https", "http",
+    "ここで買えます", "ここで買えます", "kokode買えます", "購入はこちら",
+    "&#8230;", "&#8217;", "&amp;"
+  ],
+  "ng_phrases_warn": [
+    "kokode", "KOKODE",
+    "買えるCLASSY.", "買えるclassy.", "買えるCLASSY", "買えるクラッシィ",
+    "VERY STORE", "VERYSTORE", "Very Store",
+    "予約", "発売", "新発売", "発売中", "発売日",
+    "定期購読", "年間購読", "定期購読サービス",
+    "プレゼント", "present", "Present", "PRESENT", "プレゼント企画",
+    "ギフト", "付録", "特典",
+    "amazon", "Amazon", "AMAZON", "アマゾン",
+    "チェキ", "cheki", "Cheki", "CHEKI",
+    "楽天", "Rakuten", "楽天市場", "楽天ブックス",
+    "KOBUNSHA", "Kobunsha",
+    "URL", "url", "Url", "ＵＲＬ",
+    "TEL", "Tel", "tel", "ＴＥＬ", "電話", "Tel.",
+    "公式", "オフィシャル", "official", "Official", "OFFICIAL", "公式サイト", "公式HP",
+    "前編", "ぜんぺん", "前篇", "Part1", "part1", "PART1",
+    "後編", "後篇", "Part2", "part2", "PART2",
+    "こちら", "コチラ",
+    "SHOP LIST", "SHOPLIST", "Shop List", "shop list", "ショップリスト", "ショップ一覧", "取扱店",
+    "コールセンター", "カスタマーセンター",
+    "この続きは", "続きは", "続きはこちら", "つづきは",
+    "メール", "mail", "Mail", "MAIL", "e-mail", "E-mail", "Eメール", "メールアドレス",
+    "ウェブサイト", "Webサイト", "WEBサイト", "webサイト", "website", "Website", "WEBSITE",
+    "HP", "ホームページ",
+    "サイン", "直筆サイン",
+    "VERY NaVY", "VERY NAVY", "VERY Navy", "VERYnavy", "ヴェリィネイビー", "ベリーネイビー",
+    "動画", "どうが", "ムービー", "movie", "Movie", "MOVIE", "video", "Video", "VIDEO", "映像",
+    "春", "spring", "Spring", "SPRING",
+    "夏", "summer", "Summer", "SUMMER",
+    "秋", "autumn", "fall", "Autumn", "Fall", "AUTUMN", "FALL",
+    "冬", "winter", "Winter", "WINTER",
+    "今日", "きょう", "本日"
+  ],
+  "related_links_count": 5,
+  "related_link_prefix": "▶",
+  "pr_check": {
+    "enabled": true,
+    "proxy_url": "https://corsproxy.io/?",
+    "pr_selector": "#Read_st"
+  }
+}
