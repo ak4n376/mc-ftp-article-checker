@@ -39,6 +39,12 @@ ul.checks li { font-size: 13px; line-height: 2.2; color: #555; }
 .badge-err { background: #990033; }
 .badge-warn { background: #b35c00; }
 .version { font-size: 11px; color: #bbb; text-align: right; margin-top: 16px; }
+details.word-list { margin: 6px 0 2px 4px; }
+details.word-list summary { font-size: 12px; color: #999; cursor: pointer; user-select: none; }
+details.word-list summary:hover { color: #555; }
+.word-group { display: flex; gap: 8px; margin: 5px 0 0 4px; align-items: baseline; }
+.word-group-label { font-size: 11px; font-weight: bold; color: #888; white-space: nowrap; min-width: 88px; }
+.word-tags { font-size: 12px; color: #555; line-height: 1.7; }
 .method { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 6px; padding: 14px 16px; margin: 10px 0; }
 .method-label { font-size: 13px; font-weight: bold; color: #444; margin-bottom: 10px; }
 .copy-btn { padding: 8px 18px; background: #555; color: #fff; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
@@ -88,9 +94,34 @@ textarea#code-box { display: block; width: 100%; height: 72px; margin-top: 10px;
     <ul class="checks">
       <li><span class="badge badge-err">要修正</span>媒体名・ドメインの不一致</li>
       <li><span class="badge badge-err">要修正</span>関連リンク（件数・▶記号・ドメイン・UTMパラメータ・PR記事混入）</li>
-      <li><span class="badge badge-err">要修正</span>NGワード（問い合わせ・URLの直書き など）</li>
+      <li><span class="badge badge-err">要修正</span>NGワード（問い合わせ・URLの直書き など）
+        <details class="word-list">
+          <summary>ワード一覧を見る</summary>
+          <div class="word-group"><span class="word-group-label">電話記号</span><span class="word-tags">☎&emsp;☏&emsp;📞</span></div>
+          <div class="word-group"><span class="word-group-label">問い合わせ</span><span class="word-tags">問い合わせ　問合わせ　問合せ　Contact　contact</span></div>
+          <div class="word-group"><span class="word-group-label">URL直書き</span><span class="word-tags">https　http</span></div>
+          <div class="word-group"><span class="word-group-label">購入誘導</span><span class="word-tags">ここで買えます　kokode買えます　購入はこちら</span></div>
+          <div class="word-group"><span class="word-group-label">HTMLエンティティ</span><span class="word-tags">&amp;#8230;　&amp;#8217;　&amp;amp;</span></div>
+        </details>
+      </li>
       <li><span class="badge badge-err">要修正</span>電話番号の記載</li>
-      <li><span class="badge badge-warn">要確認</span>確認ワード（季節・発売・公式 など）</li>
+      <li><span class="badge badge-warn">要確認</span>確認ワード（季節・発売・公式 など）
+        <details class="word-list">
+          <summary>ワード一覧を見る</summary>
+          <div class="word-group"><span class="word-group-label">ECサイト</span><span class="word-tags">kokode　KOKODE　買えるCLASSY.　VERY STORE　Amazon　楽天</span></div>
+          <div class="word-group"><span class="word-group-label">発売・予約</span><span class="word-tags">予約　発売　新発売　発売中　発売日</span></div>
+          <div class="word-group"><span class="word-group-label">定期購読</span><span class="word-tags">定期購読　年間購読　定期購読サービス</span></div>
+          <div class="word-group"><span class="word-group-label">プレゼント・特典</span><span class="word-tags">プレゼント　present　ギフト　付録　特典</span></div>
+          <div class="word-group"><span class="word-group-label">ショップ</span><span class="word-tags">SHOP LIST　ショップリスト　ショップ一覧　取扱店</span></div>
+          <div class="word-group"><span class="word-group-label">連絡先</span><span class="word-tags">TEL　Tel　tel　電話　メール　mail　HP　ホームページ　コールセンター　カスタマーセンター</span></div>
+          <div class="word-group"><span class="word-group-label">URL・公式</span><span class="word-tags">URL　公式　オフィシャル　official　公式サイト　ウェブサイト　Webサイト</span></div>
+          <div class="word-group"><span class="word-group-label">誘導・続き</span><span class="word-tags">こちら　コチラ　この続きは　続きは　続きはこちら</span></div>
+          <div class="word-group"><span class="word-group-label">媒体関連</span><span class="word-tags">チェキ　KOBUNSHA　VERY NaVY　前編　後編　サイン　直筆サイン</span></div>
+          <div class="word-group"><span class="word-group-label">動画</span><span class="word-tags">動画　ムービー　movie　video</span></div>
+          <div class="word-group"><span class="word-group-label">季節</span><span class="word-tags">春　夏　秋　冬　spring　summer　autumn　fall　winter</span></div>
+          <div class="word-group"><span class="word-group-label">時制</span><span class="word-tags">今日　きょう　本日</span></div>
+        </details>
+      </li>
       <li><span class="badge badge-warn">要確認</span>同一画像の重複使用</li>
       <li><span class="badge badge-warn">要確認</span>テキストの重複</li>
     </ul>
