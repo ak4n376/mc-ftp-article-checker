@@ -124,7 +124,7 @@
       if (idx === -1) continue;
       var span = document.createElement('span');
       span.className = 'magacol-hl';
-      span.setAttribute('style', 'background:' + bgColor + ';border-radius:2px;');
+      span.setAttribute('style', 'background:' + bgColor + ';border-radius:2px;padding:0 2px;');
       span.textContent = phrase;
       var parent = nodes[i].parentNode;
       if (!parent) continue;
@@ -275,7 +275,7 @@
             message: '「' + filteredNG[fn] + '」が含まれています',
             scrollTarget: ngTargets[t].scrollEl
           });
-          highlightInEl(ngTargets[t].el, filteredNG[fn], '#ffb3b3');
+          highlightInEl(ngTargets[t].el, filteredNG[fn], '#ff6666');
         }
       }
     }
@@ -301,7 +301,7 @@
             message: '「' + filteredWarn[fw] + '」が含まれています',
             scrollTarget: ngTargets[t2].scrollEl
           });
-          highlightInEl(ngTargets[t2].el, filteredWarn[fw], '#ffeaa0');
+          highlightInEl(ngTargets[t2].el, filteredWarn[fw], '#ffd000');
         }
       }
     }
@@ -332,7 +332,7 @@
       // 全段落の本文でハイライト
       for (var dh = 0; dh < paragraphTables.length; dh++) {
         var dhTd = findTdInTable(paragraphTables[dh], '本文');
-        if (dhTd) highlightInEl(dhTd, dl.text, '#ffeaa0');
+        if (dhTd) highlightInEl(dhTd, dl.text, '#ffd000');
       }
     }
 
