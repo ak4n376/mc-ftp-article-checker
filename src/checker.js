@@ -371,15 +371,12 @@
       });
       var req = fetchFn(proxyUrl)
         .then(function(r) {
-          console.log('[MC] fetch ok:', r.status, link.url);
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.text();
         })
         .then(function(html) {
-          if (!html) { console.log('[MC] empty html:', link.url); return null; }
+          if (!html) return null;
           var texts = prConfig.pr_texts || [];
-          var matched = texts.filter(function(t) { return html.indexOf(t) !== -1; });
-          console.log('[MC] pr_texts matched:', matched, 'for', link.url);
           for (var ti = 0; ti < texts.length; ti++) {
             if (html.indexOf(texts[ti]) !== -1) return link;
           }
@@ -388,7 +385,7 @@
           var doc = parser.parseFromString(html, 'text/html');
           return doc.querySelector(selector) ? link : null;
         })
-        .catch(function(e) { console.log('[MC] fetch error:', e.message, link.url); return null; });
+        .catch(function() { return null; });
 
       return Promise.race([req, timeout]);
     });
