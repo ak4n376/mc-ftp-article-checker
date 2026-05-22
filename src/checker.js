@@ -375,7 +375,14 @@
           return r.text();
         })
         .then(function(html) {
-          if (!html || html.indexOf('id="Read_st"') === -1) return null; // 高速パス
+          if (!html) return null;
+          // テキストパターンで検索（CSSセレクタより高速）
+          var texts = prConfig.pr_texts || [];
+          for (var ti = 0; ti < texts.length; ti++) {
+            if (html.indexOf(texts[ti]) !== -1) return link;
+          }
+          // セレクタ検索（フォールバック）
+          if (html.indexOf('id="Read_st"') === -1) return null;
           var parser = new DOMParser();
           var doc = parser.parseFromString(html, 'text/html');
           return doc.querySelector(selector) ? link : null;
