@@ -371,23 +371,24 @@
       });
       var req = fetchFn(proxyUrl)
         .then(function(r) {
+          console.log('[MC] fetch ok:', r.status, link.url);
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.text();
         })
         .then(function(html) {
-          if (!html) return null;
-          // テキストパターンで検索（CSSセレクタより高速）
+          if (!html) { console.log('[MC] empty html:', link.url); return null; }
           var texts = prConfig.pr_texts || [];
+          var matched = texts.filter(function(t) { return html.indexOf(t) !== -1; });
+          console.log('[MC] pr_texts matched:', matched, 'for', link.url);
           for (var ti = 0; ti < texts.length; ti++) {
             if (html.indexOf(texts[ti]) !== -1) return link;
           }
-          // セレクタ検索（フォールバック）
           if (html.indexOf('id="Read_st"') === -1) return null;
           var parser = new DOMParser();
           var doc = parser.parseFromString(html, 'text/html');
           return doc.querySelector(selector) ? link : null;
         })
-        .catch(function() { return null; });
+        .catch(function(e) { console.log('[MC] fetch error:', e.message, link.url); return null; });
 
       return Promise.race([req, timeout]);
     });
