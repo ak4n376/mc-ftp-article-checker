@@ -104,7 +104,40 @@
 
   // ===== チェックロジック =====
 
+  function clearHighlights() {
+    var spans = document.querySelectorAll('span.magacol-hl');
+    for (var i = 0; i < spans.length; i++) {
+      var s = spans[i];
+      if (s.parentNode) s.parentNode.replaceChild(document.createTextNode(s.textContent), s);
+    }
+  }
+
+  function highlightInEl(el, phrase, bgColor) {
+    if (!el || !phrase) return;
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    var nodes = [];
+    var node;
+    while ((node = walker.nextNode())) nodes.push(node);
+    for (var i = 0; i < nodes.length; i++) {
+      var text = nodes[i].nodeValue;
+      var idx = text.indexOf(phrase);
+      if (idx === -1) continue;
+      var span = document.createElement('span');
+      span.className = 'magacol-hl';
+      span.setAttribute('style', 'background:' + bgColor + ';border-radius:2px;');
+      span.textContent = phrase;
+      var parent = nodes[i].parentNode;
+      if (!parent) continue;
+      if (idx > 0) parent.insertBefore(document.createTextNode(text.substring(0, idx)), nodes[i]);
+      parent.insertBefore(span, nodes[i]);
+      var after = text.substring(idx + phrase.length);
+      if (after) parent.insertBefore(document.createTextNode(after), nodes[i]);
+      parent.removeChild(nodes[i]);
+    }
+  }
+
   function runChecks(config) {
+    clearHighlights();
     var results = [];
 
     // 記事タイトルを取得
@@ -118,20 +151,22 @@
 
     // ① 媒体名の特定
     if (!mediaName) {
-      results.push({ type: 'error', label: '媒体名', message: 'タイトル末尾に媒体名（｜媒体名）が見つかりません' });
+      results.push({ type: 'error', label: '媒体名', message: 'タイトル末尾に媒体名（｜媒体名）が見つかりません', scrollTarget: titleTd });
     } else if (!expectedDomain) {
-      results.push({ type: 'error', label: '媒体名', message: '対応ドメインが未定義の媒体名です: ' + mediaName });
+      results.push({ type: 'error', label: '媒体名', message: '対応ドメインが未定義の媒体名です: ' + mediaName, scrollTarget: titleTd });
     }
 
     // ② 関連リンク: 件数・▶ 記号・ドメイン整合性
     var relatedLinks = getRelatedLinks();
+    var relatedLinksTable = getRelatedLinksTable();
     var expectedCount = config.related_links_count;
 
     if (relatedLinks.length !== expectedCount) {
       results.push({
         type: 'error',
         label: '関連リンク数',
-        message: relatedLinks.length + '本（規定: ' + expectedCount + '本）'
+        message: relatedLinks.length + '本（規定: ' + expectedCount + '本）',
+        scrollTarget: relatedLinksTable
       });
     }
 
@@ -145,7 +180,8 @@
         results.push({
           type: 'error',
           label: '関連リンク' + num + ' タイトル',
-          message: '先頭に▶がありません: ' + link.title.slice(0, 30) + (link.title.length > 30 ? '…' : '')
+          message: '先頭に▶がありません: ' + link.title.slice(0, 30) + (link.title.length > 30 ? '…' : ''),
+          scrollTarget: relatedLinksTable
         });
       }
 
@@ -154,23 +190,25 @@
         results.push({
           type: 'error',
           label: '関連リンク' + num + ' URL',
-          message: 'UTMパラメータが含まれています:\n' + link.url
+          message: 'UTMパラメータが含まれています:\n' + link.url,
+          scrollTarget: relatedLinksTable
         });
       }
 
       // ドメイン整合性（媒体が特定できている場合のみ）
       if (expectedDomain) {
         if (!link.url) {
-          results.push({ type: 'error', label: '関連リンク' + num + ' URL', message: 'URLが空です' });
+          results.push({ type: 'error', label: '関連リンク' + num + ' URL', message: 'URLが空です', scrollTarget: relatedLinksTable });
         } else {
           var hostname = extractHostname(link.url);
           if (!hostname) {
-            results.push({ type: 'error', label: '関連リンク' + num + ' URL', message: '無効なURL: ' + link.url });
+            results.push({ type: 'error', label: '関連リンク' + num + ' URL', message: '無効なURL: ' + link.url, scrollTarget: relatedLinksTable });
           } else if (hostname !== expectedDomain) {
             results.push({
               type: 'error',
               label: '関連リンク' + num + ' URL',
-              message: 'ドメイン不一致（期待: ' + expectedDomain + '）\n' + link.url
+              message: 'ドメイン不一致（期待: ' + expectedDomain + '）\n' + link.url,
+              scrollTarget: relatedLinksTable
             });
           }
         }
@@ -204,13 +242,13 @@
     }
 
     // ④ NGワード検出（本文・タイトル）
-    var ngTargets = [{ name: 'タイトル', text: titleText }];
+    var ngTargets = [{ name: 'タイトル', text: titleText, el: titleTd, scrollEl: titleTd }];
     for (var k = 0; k < paragraphTables.length; k++) {
       var kt = paragraphTables[k];
       var kHead = kt.querySelector('thead th');
       var kName = kHead ? kHead.textContent.trim() : '第' + (k + 1) + '段落';
       var bodyTd = findTdInTable(kt, '本文');
-      if (bodyTd) ngTargets.push({ name: kName + ' 本文', text: bodyTd.textContent });
+      if (bodyTd) ngTargets.push({ name: kName + ' 本文', text: bodyTd.textContent, el: bodyTd, scrollEl: kt });
     }
 
     // 要修正ワード（ng_phrases）
@@ -234,8 +272,10 @@
           results.push({
             type: 'error',
             label: 'NGワード（' + ngTargets[t].name + '）',
-            message: '「' + filteredNG[fn] + '」が含まれています'
+            message: '「' + filteredNG[fn] + '」が含まれています',
+            scrollTarget: ngTargets[t].scrollEl
           });
+          highlightInEl(ngTargets[t].el, filteredNG[fn], 'rgba(153,0,51,0.2)');
         }
       }
     }
@@ -258,8 +298,10 @@
           results.push({
             type: 'warn',
             label: '確認ワード（' + ngTargets[t2].name + '）',
-            message: '「' + filteredWarn[fw] + '」が含まれています'
+            message: '「' + filteredWarn[fw] + '」が含まれています',
+            scrollTarget: ngTargets[t2].scrollEl
           });
+          highlightInEl(ngTargets[t2].el, filteredWarn[fw], 'rgba(179,92,0,0.18)');
         }
       }
     }
@@ -492,14 +534,16 @@
       html += '</div>';
     }
 
-    // 各結果行
+    // 各結果行（scrollTarget があれば data-idx を付けてクリック可能にする）
     for (var i = 0; i < results.length; i++) {
       var r = results[i];
       var isErr = r.type === 'error';
-      html += '<div style="padding:9px 14px;background:' + (isErr ? '#fff5f5' : '#fffbf0') + ';border-bottom:1px solid #eee;">';
+      var hasScroll = !!r.scrollTarget;
+      html += '<div class="mcc-row" data-idx="' + i + '" style="padding:9px 14px;background:' + (isErr ? '#fff5f5' : '#fffbf0') + ';border-bottom:1px solid #eee;' + (hasScroll ? 'cursor:pointer;' : '') + '">';
       html += '<div style="margin-bottom:3px;">';
       html += '<span style="background:' + (isErr ? '#990033' : '#b35c00') + ';color:#fff;border-radius:2px;padding:1px 5px;font-size:11px;margin-right:6px;">' + (isErr ? '要修正' : '要確認') + '</span>';
       html += '<strong style="font-size:12px;">' + escHtml(r.label) + '</strong>';
+      if (hasScroll) html += '<span style="font-size:11px;color:#aaa;margin-left:6px;">↩ クリックで移動</span>';
       html += '</div>';
       html += '<div style="color:#555;font-size:12px;white-space:pre-wrap;">' + escHtml(r.message) + '</div>';
       html += '</div>';
@@ -516,7 +560,19 @@
     panel.innerHTML = html;
     document.body.appendChild(panel);
 
+    // 結果行クリック → 該当箇所へスクロール
+    var rows = panel.querySelectorAll('.mcc-row');
+    for (var ri = 0; ri < rows.length; ri++) {
+      (function(idx) {
+        rows[idx].addEventListener('click', function() {
+          var target = results[idx].scrollTarget;
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      })(ri);
+    }
+
     document.getElementById('mcc-close').addEventListener('click', function () {
+      clearHighlights();
       var p = document.getElementById('magacol-checker-panel');
       if (p) p.parentNode.removeChild(p);
     });
