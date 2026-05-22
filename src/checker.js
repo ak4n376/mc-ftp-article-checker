@@ -338,6 +338,7 @@
 
     // ⑥ PR記事チェック（allorigins.win 経由で非同期取得）
     var prConfig = config.pr_check;
+    console.log('[MC Checker] prConfig:', prConfig, '/ relatedLinks.length:', relatedLinks.length);
     if (prConfig && prConfig.enabled && relatedLinks.length > 0) {
       // 同期チェック結果を先に表示し「PR確認中」ローディング行を付ける
       showPanel(results, mediaName, expectedDomain, true);
