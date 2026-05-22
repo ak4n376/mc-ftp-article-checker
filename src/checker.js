@@ -275,7 +275,7 @@
             message: '「' + filteredNG[fn] + '」が含まれています',
             scrollTarget: ngTargets[t].scrollEl
           });
-          highlightInEl(ngTargets[t].el, filteredNG[fn], 'rgba(153,0,51,0.2)');
+          highlightInEl(ngTargets[t].el, filteredNG[fn], '#ffb3b3');
         }
       }
     }
@@ -301,7 +301,7 @@
             message: '「' + filteredWarn[fw] + '」が含まれています',
             scrollTarget: ngTargets[t2].scrollEl
           });
-          highlightInEl(ngTargets[t2].el, filteredWarn[fw], 'rgba(179,92,0,0.18)');
+          highlightInEl(ngTargets[t2].el, filteredWarn[fw], '#ffeaa0');
         }
       }
     }
@@ -326,8 +326,14 @@
       results.push({
         type: 'warn',
         label: '重複テキスト',
-        message: '同じ文が複数箇所に含まれています:\n「' + dl.slice(0, 50) + (dl.length > 50 ? '…' : '') + '」'
+        message: '同じ文が複数箇所に含まれています:\n「' + dl.text.slice(0, 50) + (dl.text.length > 50 ? '…' : '') + '」',
+        scrollTarget: dl.firstTable
       });
+      // 全段落の本文でハイライト
+      for (var dh = 0; dh < paragraphTables.length; dh++) {
+        var dhTd = findTdInTable(paragraphTables[dh], '本文');
+        if (dhTd) highlightInEl(dhTd, dl.text, '#ffeaa0');
+      }
     }
 
     // ⑥ PR記事チェック（allorigins.win 経由で非同期取得）
@@ -440,13 +446,12 @@
   }
 
   // 全段落の本文から重複している行を返す
-  // <br> タグを改行として扱い、10文字以上の行のみ対象にする
+  // 戻り値: [{text, firstTable}] — firstTable は最初に出現した段落テーブル
   function findDuplicateLines(paragraphTables) {
-    var allLines = [];
+    var allLines = []; // {text, bodyTd, table}
     for (var i = 0; i < paragraphTables.length; i++) {
       var bodyTd = findTdInTable(paragraphTables[i], '本文');
       if (!bodyTd) continue;
-      // <br> を \n に置換してからテキスト抽出（cloneNode でDOM本体を壊さない）
       var clone = bodyTd.cloneNode(true);
       var brs = clone.querySelectorAll('br');
       for (var b = 0; b < brs.length; b++) {
@@ -455,22 +460,23 @@
       var lines = clone.textContent.split('\n');
       for (var j = 0; j < lines.length; j++) {
         var line = lines[j].trim();
-        if (line.length >= 4) allLines.push(line);
+        if (line.length >= 4) allLines.push({ text: line, bodyTd: bodyTd, table: paragraphTables[i] });
       }
     }
 
     var counts = {};
     for (var k = 0; k < allLines.length; k++) {
-      counts[allLines[k]] = (counts[allLines[k]] || 0) + 1;
+      var t = allLines[k].text;
+      counts[t] = (counts[t] || 0) + 1;
     }
 
     var seen = {};
     var dupes = [];
     for (var l = 0; l < allLines.length; l++) {
-      var line = allLines[l];
-      if (counts[line] >= 2 && !seen[line]) {
-        seen[line] = true;
-        dupes.push(line);
+      var item = allLines[l];
+      if (counts[item.text] >= 2 && !seen[item.text]) {
+        seen[item.text] = true;
+        dupes.push({ text: item.text, firstTable: item.table });
       }
     }
     return dupes;
