@@ -338,7 +338,6 @@
 
     // ⑥ PR記事チェック（allorigins.win 経由で非同期取得）
     var prConfig = config.pr_check;
-    console.log('[MC Checker] prConfig:', prConfig, '/ relatedLinks.length:', relatedLinks.length);
     if (prConfig && prConfig.enabled && relatedLinks.length > 0) {
       // 同期チェック結果を先に表示し「PR確認中」ローディング行を付ける
       showPanel(results, mediaName, expectedDomain, true);
@@ -365,15 +364,13 @@
     var promises = links.map(function(link) {
       if (!link.url) return Promise.resolve(null);
       var proxyUrl = proxyBase + encodeURIComponent(link.url);
-      console.log('[MC Checker] PR fetch:', proxyUrl);
 
-      // 8秒でタイムアウトさせる（allorigins.win が遅延した場合の保険）
+      // 8秒でタイムアウトさせる（プロキシが遅延した場合の保険）
       var timeout = new Promise(function(resolve) {
-        setTimeout(function() { console.log('[MC Checker] PR timeout:', link.url); resolve(null); }, 8000);
+        setTimeout(function() { resolve(null); }, 8000);
       });
       var req = fetchFn(proxyUrl)
         .then(function(r) {
-          console.log('[MC Checker] PR response:', link.url, r.status, r.ok);
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.text();
         })
