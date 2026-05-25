@@ -363,25 +363,40 @@
     var fetchFn = window._MAGACOL_FETCH || fetch;
 
     // PR判定ロジック（どのプロキシのレスポンスにも共通）
-    function isPR(html) {
+    function isPR(html, articleUrl) {
       if (!html) return false;
-      // 広告・トラッキング用スクリプト内の "sponsored" 等による誤検出を防ぐため
-      // <script> / <style> タグごと除去してからテキスト照合する
-      var stripped = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '');
+
+      // プロキシがエラーページを返した場合を弾く
+      // 正規の記事ページには必ず自身のドメインが含まれる
+      if (articleUrl) {
+        var domain = extractHostname(articleUrl);
+        if (domain && html.indexOf(domain) === -1) return false;
+      }
+
+      // DOMParser で正確にパース（regexより確実）
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(html, 'text/html');
+
+      // CSSセレクタ判定を最初に実行（#Read_st はSTORY・CLASSYともに静的HTMLにある）
+      if (selector && doc.querySelector(selector)) return true;
+
+      // script / style / noscript を除去してからテキスト照合
+      // 広告コード内の "sponsored" 等による誤検出を防ぐため
+      var toRemove = doc.querySelectorAll('script, style, noscript');
+      for (var si = 0; si < toRemove.length; si++) {
+        if (toRemove[si].parentNode) toRemove[si].parentNode.removeChild(toRemove[si]);
+      }
+      var content = doc.documentElement ? doc.documentElement.innerHTML : '';
+
       var texts = prConfig.pr_texts || [];
       for (var ti = 0; ti < texts.length; ti++) {
-        if (stripped.indexOf(texts[ti]) !== -1) return true;
+        if (content.indexOf(texts[ti]) !== -1) return true;
       }
       var regexes = prConfig.pr_regexes || [];
       for (var ri = 0; ri < regexes.length; ri++) {
-        if (new RegExp(regexes[ri]).test(stripped)) return true;
+        if (new RegExp(regexes[ri]).test(content)) return true;
       }
-      if (stripped.indexOf('id="Read_st"') === -1) return false;
-      var parser = new DOMParser();
-      var doc = parser.parseFromString(html, 'text/html');
-      return !!doc.querySelector(selector);
+      return false;
     }
 
     // 全プロキシを並列で試し、最初に有効なレスポンス（100字超）を返したもので判定する
@@ -414,7 +429,7 @@
             var valid = html && html !== '__timeout__' && html !== '__error__' && html.length > 100;
             if (!done && valid) {
               done = true;
-              resolve(isPR(html) ? link : null);
+              resolve(isPR(html, link.url) ? link : null);
             } else if (settled === proxyUrls.length && !done) {
               done = true;
               resolve(null);
