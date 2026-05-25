@@ -353,45 +353,60 @@
     }
   }
 
-  // 関連リンクのPR記事チェック（CORS プロキシ経由）
+  // 関連リンクのPR記事チェック（CORS プロキシ経由・複数プロキシにフォールバック）
   function checkPRArticles(links, prConfig) {
-    var proxyBase = prConfig.proxy_url;
+    // proxy_urls 配列を優先し、旧形式の proxy_url (文字列) にも対応する
+    var proxyUrls = prConfig.proxy_urls || (prConfig.proxy_url ? [prConfig.proxy_url] : []);
     var selector = prConfig.pr_selector;
 
     // テスト用runner.htmlがwindow._MAGACOL_FETCHを注入している場合はそれを使う
     var fetchFn = window._MAGACOL_FETCH || fetch;
 
-    var promises = links.map(function(link) {
-      if (!link.url) return Promise.resolve(null);
-      var proxyUrl = proxyBase + encodeURIComponent(link.url);
+    // PR判定ロジック（どのプロキシのレスポンスにも共通）
+    function isPR(html) {
+      if (!html) return false;
+      var texts = prConfig.pr_texts || [];
+      for (var ti = 0; ti < texts.length; ti++) {
+        if (html.indexOf(texts[ti]) !== -1) return true;
+      }
+      var regexes = prConfig.pr_regexes || [];
+      for (var ri = 0; ri < regexes.length; ri++) {
+        if (new RegExp(regexes[ri]).test(html)) return true;
+      }
+      if (html.indexOf('id="Read_st"') === -1) return false;
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(html, 'text/html');
+      return !!doc.querySelector(selector);
+    }
 
-      // 8秒でタイムアウトさせる（プロキシが遅延した場合の保険）
+    // プロキシをインデックス順に試し、成功したものでPR判定する
+    // HTTP エラーや例外が出たら次のプロキシへ進む
+    function tryNextProxy(link, idx) {
+      if (idx >= proxyUrls.length) return Promise.resolve(null);
+      var proxyUrl = proxyUrls[idx] + encodeURIComponent(link.url);
+
+      // 8秒でタイムアウト（プロキシが応答しない場合の保険）
       var timeout = new Promise(function(resolve) {
-        setTimeout(function() { resolve(null); }, 8000);
+        setTimeout(function() { resolve('__timeout__'); }, 8000);
       });
       var req = fetchFn(proxyUrl)
         .then(function(r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.text();
         })
-        .then(function(html) {
-          if (!html) return null;
-          var texts = prConfig.pr_texts || [];
-          for (var ti = 0; ti < texts.length; ti++) {
-            if (html.indexOf(texts[ti]) !== -1) return link;
-          }
-          var regexes = prConfig.pr_regexes || [];
-          for (var ri = 0; ri < regexes.length; ri++) {
-            if (new RegExp(regexes[ri]).test(html)) return link;
-          }
-          if (html.indexOf('id="Read_st"') === -1) return null;
-          var parser = new DOMParser();
-          var doc = parser.parseFromString(html, 'text/html');
-          return doc.querySelector(selector) ? link : null;
-        })
-        .catch(function() { return null; });
+        .catch(function() { return '__error__'; });
 
-      return Promise.race([req, timeout]);
+      return Promise.race([req, timeout]).then(function(html) {
+        if (html === '__timeout__' || html === '__error__') {
+          return tryNextProxy(link, idx + 1);
+        }
+        return isPR(html) ? link : null;
+      });
+    }
+
+    var promises = links.map(function(link) {
+      if (!link.url) return Promise.resolve(null);
+      return tryNextProxy(link, 0);
     });
 
     return Promise.all(promises).then(function(checked) {
