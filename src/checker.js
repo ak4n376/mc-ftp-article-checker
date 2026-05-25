@@ -377,33 +377,34 @@
       var parser = new DOMParser();
       var doc = parser.parseFromString(html, 'text/html');
 
-      // CSSセレクタ判定を最初に実行（#Read_st はSTORY・CLASSYともに静的HTMLにある）
-      // 要素が存在するだけでなく、テキストにPR文言が含まれる場合のみPRと判定する
-      // 非PR記事でも #Read_st 自体は存在するサイトがあるため
+      // ① CSSセレクタ要素内のテキストでPR判定
+      // "Sponsored" / "PR" は全文検索すると非PR記事の広告ウィジェットに誤反応するため
+      // 必ず #Read_st 要素内テキストとしてのみチェックする
       if (selector) {
         var prEl = doc.querySelector(selector);
         if (prEl) {
           var elText = prEl.textContent.trim();
-          // pr_texts に加え "PR" 単体も要素内テキストとしては有効（サイドバーリンクでの誤検出リスクなし）
-          var elPrTexts = (prConfig.pr_texts || []).concat(['PR']);
-          for (var eti = 0; eti < elPrTexts.length; eti++) {
-            if (elText.indexOf(elPrTexts[eti]) !== -1) return true;
+          var prLabels = ['PR', 'Sponsored', 'タイアップ広告', 'advertorial'];
+          for (var ei = 0; ei < prLabels.length; ei++) {
+            if (elText.indexOf(prLabels[ei]) !== -1) return true;
           }
         }
       }
 
-      // script / style / noscript を除去してからテキスト照合
-      // 広告コード内の "sponsored" 等による誤検出を防ぐため
+      // ② script / style / noscript を除去してから全文照合
       var toRemove = doc.querySelectorAll('script, style, noscript');
       for (var si = 0; si < toRemove.length; si++) {
         if (toRemove[si].parentNode) toRemove[si].parentNode.removeChild(toRemove[si]);
       }
       var content = doc.documentElement ? doc.documentElement.innerHTML : '';
 
+      // 全文照合は config の pr_texts のみ（広すぎる単語は config 側で除外する）
       var texts = prConfig.pr_texts || [];
       for (var ti = 0; ti < texts.length; ti++) {
         if (content.indexOf(texts[ti]) !== -1) return true;
       }
+
+      // ③ 正規表現照合（be-story.jp の日付+PRパターン等）
       var regexes = prConfig.pr_regexes || [];
       for (var ri = 0; ri < regexes.length; ri++) {
         if (new RegExp(regexes[ri]).test(content)) return true;
