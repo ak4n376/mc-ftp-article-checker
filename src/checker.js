@@ -566,10 +566,10 @@
       else warns.push(results[i]);
     }
 
-    var headerColor = errors.length > 0 ? '#990033' : (warns.length > 0 ? '#b35c00' : '#1a7f37');
+    var headerColor = errors.length > 0 ? '#990033' : (warns.length > 0 ? '#b35c00' : (loadingPR ? '#888' : '#1a7f37'));
     var statusText = errors.length > 0
       ? ('要修正 ' + errors.length + '件' + (warns.length > 0 ? ' / 要確認 ' + warns.length + '件' : ''))
-      : (warns.length > 0 ? '要確認 ' + warns.length + '件' : 'OK ✓');
+      : (warns.length > 0 ? '要確認 ' + warns.length + '件' : (loadingPR ? '確認中...' : 'OK ✓'));
 
     var panel = document.createElement('div');
     panel.id = 'magacol-checker-panel';
