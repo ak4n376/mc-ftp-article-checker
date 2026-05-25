@@ -365,15 +365,20 @@
     // PR判定ロジック（どのプロキシのレスポンスにも共通）
     function isPR(html) {
       if (!html) return false;
+      // 広告・トラッキング用スクリプト内の "sponsored" 等による誤検出を防ぐため
+      // <script> / <style> タグごと除去してからテキスト照合する
+      var stripped = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '');
       var texts = prConfig.pr_texts || [];
       for (var ti = 0; ti < texts.length; ti++) {
-        if (html.indexOf(texts[ti]) !== -1) return true;
+        if (stripped.indexOf(texts[ti]) !== -1) return true;
       }
       var regexes = prConfig.pr_regexes || [];
       for (var ri = 0; ri < regexes.length; ri++) {
-        if (new RegExp(regexes[ri]).test(html)) return true;
+        if (new RegExp(regexes[ri]).test(stripped)) return true;
       }
-      if (html.indexOf('id="Read_st"') === -1) return false;
+      if (stripped.indexOf('id="Read_st"') === -1) return false;
       var parser = new DOMParser();
       var doc = parser.parseFromString(html, 'text/html');
       return !!doc.querySelector(selector);
