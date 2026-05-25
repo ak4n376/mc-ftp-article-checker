@@ -378,7 +378,19 @@
       var doc = parser.parseFromString(html, 'text/html');
 
       // CSSセレクタ判定を最初に実行（#Read_st はSTORY・CLASSYともに静的HTMLにある）
-      if (selector && doc.querySelector(selector)) return true;
+      // 要素が存在するだけでなく、テキストにPR文言が含まれる場合のみPRと判定する
+      // 非PR記事でも #Read_st 自体は存在するサイトがあるため
+      if (selector) {
+        var prEl = doc.querySelector(selector);
+        if (prEl) {
+          var elText = prEl.textContent.trim();
+          // pr_texts に加え "PR" 単体も要素内テキストとしては有効（サイドバーリンクでの誤検出リスクなし）
+          var elPrTexts = (prConfig.pr_texts || []).concat(['PR']);
+          for (var eti = 0; eti < elPrTexts.length; eti++) {
+            if (elText.indexOf(elPrTexts[eti]) !== -1) return true;
+          }
+        }
+      }
 
       // script / style / noscript を除去してからテキスト照合
       // 広告コード内の "sponsored" 等による誤検出を防ぐため
