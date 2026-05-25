@@ -353,7 +353,7 @@
     }
   }
 
-  // 関連リンクのPR記事チェック（CORS プロキシ経由・複数プロキシにフォールバック）
+  // 関連リンクのPR記事チェック（CORS プロキシ経由・全プロキシ並列試行）
   function checkPRArticles(links, prConfig) {
     // proxy_urls 配列を優先し、旧形式の proxy_url (文字列) にも対応する
     var proxyUrls = prConfig.proxy_urls || (prConfig.proxy_url ? [prConfig.proxy_url] : []);
@@ -379,34 +379,48 @@
       return !!doc.querySelector(selector);
     }
 
-    // プロキシをインデックス順に試し、成功したものでPR判定する
-    // HTTP エラーや例外が出たら次のプロキシへ進む
-    function tryNextProxy(link, idx) {
-      if (idx >= proxyUrls.length) return Promise.resolve(null);
-      var proxyUrl = proxyUrls[idx] + encodeURIComponent(link.url);
+    // 全プロキシを並列で試し、最初に有効なレスポンス（100字超）を返したもので判定する
+    // 逐次フォールバックだとコールドキャッシュ時のタイムアウト待ちが積み重なるため並列化する
+    function checkLink(link) {
+      if (!link.url || proxyUrls.length === 0) return Promise.resolve(null);
 
-      // 8秒でタイムアウト（プロキシが応答しない場合の保険）
-      var timeout = new Promise(function(resolve) {
-        setTimeout(function() { resolve('__timeout__'); }, 8000);
-      });
-      var req = fetchFn(proxyUrl)
-        .then(function(r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.text();
-        })
-        .catch(function() { return '__error__'; });
+      return new Promise(function(resolve) {
+        var settled = 0;
+        var done = false;
 
-      return Promise.race([req, timeout]).then(function(html) {
-        if (html === '__timeout__' || html === '__error__') {
-          return tryNextProxy(link, idx + 1);
-        }
-        return isPR(html) ? link : null;
+        proxyUrls.forEach(function(proxyBase) {
+          var proxyUrl = proxyBase + encodeURIComponent(link.url);
+          var timerId;
+          var timeoutP = new Promise(function(res) {
+            timerId = setTimeout(function() { res('__timeout__'); }, 12000);
+          });
+
+          Promise.race([
+            fetchFn(proxyUrl)
+              .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+              })
+              .catch(function() { return '__error__'; }),
+            timeoutP
+          ]).then(function(html) {
+            clearTimeout(timerId);
+            settled++;
+            var valid = html && html !== '__timeout__' && html !== '__error__' && html.length > 100;
+            if (!done && valid) {
+              done = true;
+              resolve(isPR(html) ? link : null);
+            } else if (settled === proxyUrls.length && !done) {
+              done = true;
+              resolve(null);
+            }
+          });
+        });
       });
     }
 
     var promises = links.map(function(link) {
-      if (!link.url) return Promise.resolve(null);
-      return tryNextProxy(link, 0);
+      return checkLink(link);
     });
 
     return Promise.all(promises).then(function(checked) {
