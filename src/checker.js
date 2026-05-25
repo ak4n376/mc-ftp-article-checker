@@ -380,6 +380,10 @@
           for (var ti = 0; ti < texts.length; ti++) {
             if (html.indexOf(texts[ti]) !== -1) return link;
           }
+          var regexes = prConfig.pr_regexes || [];
+          for (var ri = 0; ri < regexes.length; ri++) {
+            if (new RegExp(regexes[ri]).test(html)) return link;
+          }
           if (html.indexOf('id="Read_st"') === -1) return null;
           var parser = new DOMParser();
           var doc = parser.parseFromString(html, 'text/html');

@@ -56,6 +56,7 @@
     "enabled": true,
     "proxy_url": "https://api.allorigins.win/raw?url=",
     "pr_selector": "#Read_st",
-    "pr_texts": ["PR・お問合わせ先", "お問合わせ先", "タイアップ広告", "Sponsored", "advertorial", "sponsored"]
+    "pr_texts": ["PR・お問合わせ先", "お問合わせ先", "タイアップ広告", "Sponsored", "advertorial", "sponsored"],
+    "pr_regexes": ["\\d+\\/\\d+ PR "]
   }
 }
