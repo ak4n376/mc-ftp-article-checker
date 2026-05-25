@@ -97,29 +97,14 @@ textarea#code-box { display: block; width: 100%; height: 72px; margin-top: 10px;
       <li><span class="badge badge-err">要修正</span>NGワード（問い合わせ・URLの直書き など）
         <details class="word-list">
           <summary>ワード一覧を見る</summary>
-          <div class="word-group"><span class="word-group-label">電話記号</span><span class="word-tags">☎&emsp;☏&emsp;📞</span></div>
-          <div class="word-group"><span class="word-group-label">問い合わせ</span><span class="word-tags">問い合わせ　問合わせ　問合せ　Contact　contact</span></div>
-          <div class="word-group"><span class="word-group-label">URL直書き</span><span class="word-tags">https　http</span></div>
-          <div class="word-group"><span class="word-group-label">購入誘導</span><span class="word-tags">ここで買えます　kokode買えます　購入はこちら</span></div>
-          <div class="word-group"><span class="word-group-label">HTMLエンティティ</span><span class="word-tags">&amp;#8230;　&amp;#8217;　&amp;amp;</span></div>
+          <div id="ng-phrases-list"><span style="color:#bbb;font-size:12px;">読み込み中...</span></div>
         </details>
       </li>
       <li><span class="badge badge-err">要修正</span>電話番号の記載</li>
       <li><span class="badge badge-warn">要確認</span>確認ワード（季節・発売・公式 など）
         <details class="word-list">
           <summary>ワード一覧を見る</summary>
-          <div class="word-group"><span class="word-group-label">ECサイト</span><span class="word-tags">kokode　KOKODE　買えるCLASSY.　VERY STORE　Amazon　楽天</span></div>
-          <div class="word-group"><span class="word-group-label">発売・予約</span><span class="word-tags">予約　発売　新発売　発売中　発売日</span></div>
-          <div class="word-group"><span class="word-group-label">定期購読</span><span class="word-tags">定期購読　年間購読　定期購読サービス</span></div>
-          <div class="word-group"><span class="word-group-label">プレゼント・特典</span><span class="word-tags">プレゼント　present　ギフト　付録　特典</span></div>
-          <div class="word-group"><span class="word-group-label">ショップ</span><span class="word-tags">SHOP LIST　ショップリスト　ショップ一覧　取扱店</span></div>
-          <div class="word-group"><span class="word-group-label">連絡先</span><span class="word-tags">TEL　Tel　tel　電話　メール　mail　HP　ホームページ　コールセンター　カスタマーセンター</span></div>
-          <div class="word-group"><span class="word-group-label">URL・公式</span><span class="word-tags">URL　公式　オフィシャル　official　公式サイト　ウェブサイト　Webサイト</span></div>
-          <div class="word-group"><span class="word-group-label">誘導・続き</span><span class="word-tags">こちら　コチラ　この続きは　続きは　続きはこちら</span></div>
-          <div class="word-group"><span class="word-group-label">媒体関連</span><span class="word-tags">チェキ　KOBUNSHA　VERY NaVY　前編　後編　サイン　直筆サイン</span></div>
-          <div class="word-group"><span class="word-group-label">動画</span><span class="word-tags">動画　ムービー　movie　video</span></div>
-          <div class="word-group"><span class="word-group-label">季節</span><span class="word-tags">春　夏　秋　冬　spring　summer　autumn　fall　winter</span></div>
-          <div class="word-group"><span class="word-group-label">時制</span><span class="word-tags">今日　きょう　本日</span></div>
+          <div id="ng-phrases-warn-list"><span style="color:#bbb;font-size:12px;">読み込み中...</span></div>
         </details>
       </li>
       <li><span class="badge badge-warn">要確認</span>同一画像の重複使用</li>
@@ -148,6 +133,30 @@ var _bookmarkletHref = (function() {
 
 document.getElementById('bookmarklet').href = _bookmarkletHref;
 document.getElementById('code-box').value = _bookmarkletHref;
+
+// config.json からワード一覧を動的に描画
+var CONFIG_URL = 'https://ak4n376.github.io/mc-ftp-article-checker/src/config.json';
+fetch(CONFIG_URL + '?v=' + Date.now())
+  .then(function(r) { return r.json(); })
+  .then(function(config) {
+    function renderWords(elId, words) {
+      var el = document.getElementById(elId);
+      if (!el || !words) return;
+      el.innerHTML = '';
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'padding:4px 0;line-height:2;font-size:12px;color:#555;';
+      wrap.textContent = words.join('　');
+      el.appendChild(wrap);
+    }
+    renderWords('ng-phrases-list', config.ng_phrases);
+    renderWords('ng-phrases-warn-list', config.ng_phrases_warn);
+  })
+  .catch(function() {
+    ['ng-phrases-list', 'ng-phrases-warn-list'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<span style="color:#bbb;font-size:12px;">読み込みに失敗しました</span>';
+    });
+  });
 </script>
 </body>
 </html>
