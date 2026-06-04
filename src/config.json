@@ -58,6 +58,7 @@
     "proxy_urls": ["https://api.allorigins.win/raw?url=", "https://api.codetabs.com/v1/proxy?quest="],
     "pr_selector": "#Read_st",
     "pr_texts": ["PR・お問合わせ先", "タイアップ広告"],
-    "pr_regexes": ["\\d+\\/\\d+ PR "]
+    "pr_regexes": ["\\d+\\/\\d+ PR "],
+    "old_article_months": 18
   }
 }

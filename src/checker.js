@@ -341,7 +341,7 @@
     if (prConfig && prConfig.enabled && relatedLinks.length > 0) {
       // 同期チェック結果を先に表示し「PR確認中」ローディング行を付ける
       showPanel(results, mediaName, expectedDomain, true);
-      checkPRArticles(relatedLinks, prConfig).then(function(prResults) {
+      checkPRArticles(relatedLinks, prConfig, relatedLinksTable).then(function(prResults) {
         for (var p = 0; p < prResults.length; p++) results.push(prResults[p]);
         showPanel(results, mediaName, expectedDomain, false);
       }).catch(function() {
@@ -353,69 +353,85 @@
     }
   }
 
-  // 関連リンクのPR記事チェック（CORS プロキシ経由・全プロキシ並列試行）
-  function checkPRArticles(links, prConfig) {
-    // proxy_urls 配列を優先し、旧形式の proxy_url (文字列) にも対応する
+  // 関連リンクのPR記事チェック＋配信日チェック（CORS プロキシ経由・全プロキシ並列試行）
+  function checkPRArticles(links, prConfig, linksTable) {
     var proxyUrls = prConfig.proxy_urls || (prConfig.proxy_url ? [prConfig.proxy_url] : []);
     var selector = prConfig.pr_selector;
-
-    // テスト用runner.htmlがwindow._MAGACOL_FETCHを注入している場合はそれを使う
     var fetchFn = window._MAGACOL_FETCH || fetch;
 
-    // PR判定ロジック（どのプロキシのレスポンスにも共通）
-    function isPR(html, articleUrl) {
-      if (!html) return false;
+    // 古い記事の閾値日付を計算
+    var oldMonths = prConfig.old_article_months || 18;
+    var limitDate = new Date();
+    limitDate.setMonth(limitDate.getMonth() - oldMonths);
 
-      // プロキシがエラーページを返した場合を弾く
-      // 正規の記事ページには必ず自身のドメインが含まれる
+    // HTMLを解析してPR判定と配信日を同時に取得する
+    function analyzeHTML(html, articleUrl) {
+      var result = { isPR: false, pubDate: null };
+      if (!html) return result;
+
+      // ドメイン検証: プロキシのエラーページを弾く
       if (articleUrl) {
         var domain = extractHostname(articleUrl);
-        if (domain && html.indexOf(domain) === -1) return false;
+        if (domain && html.indexOf(domain) === -1) return result;
       }
 
-      // DOMParser で正確にパース（regexより確実）
       var parser = new DOMParser();
       var doc = parser.parseFromString(html, 'text/html');
 
-      // ① CSSセレクタ要素内のテキストでPR判定
-      // "Sponsored" / "PR" は全文検索すると非PR記事の広告ウィジェットに誤反応するため
-      // 必ず #Read_st 要素内テキストとしてのみチェックする
+      // ① CSSセレクタ要素内テキストでPR判定
       if (selector) {
         var prEl = doc.querySelector(selector);
         if (prEl) {
           var elText = prEl.textContent.trim();
           var prLabels = ['PR', 'Sponsored', 'タイアップ広告', 'advertorial'];
           for (var ei = 0; ei < prLabels.length; ei++) {
-            if (elText.indexOf(prLabels[ei]) !== -1) return true;
+            if (elText.indexOf(prLabels[ei]) !== -1) { result.isPR = true; break; }
           }
         }
       }
 
       // ② script / style / noscript を除去してから全文照合
-      var toRemove = doc.querySelectorAll('script, style, noscript');
-      for (var si = 0; si < toRemove.length; si++) {
-        if (toRemove[si].parentNode) toRemove[si].parentNode.removeChild(toRemove[si]);
+      if (!result.isPR) {
+        var toRemove = doc.querySelectorAll('script, style, noscript');
+        for (var si = 0; si < toRemove.length; si++) {
+          if (toRemove[si].parentNode) toRemove[si].parentNode.removeChild(toRemove[si]);
+        }
+        var content = doc.documentElement ? doc.documentElement.innerHTML : '';
+        var texts = prConfig.pr_texts || [];
+        for (var ti = 0; ti < texts.length; ti++) {
+          if (content.indexOf(texts[ti]) !== -1) { result.isPR = true; break; }
+        }
+        if (!result.isPR) {
+          var regexes = prConfig.pr_regexes || [];
+          for (var ri = 0; ri < regexes.length; ri++) {
+            if (new RegExp(regexes[ri]).test(content)) { result.isPR = true; break; }
+          }
+        }
       }
-      var content = doc.documentElement ? doc.documentElement.innerHTML : '';
 
-      // 全文照合は config の pr_texts のみ（広すぎる単語は config 側で除外する）
-      var texts = prConfig.pr_texts || [];
-      for (var ti = 0; ti < texts.length; ti++) {
-        if (content.indexOf(texts[ti]) !== -1) return true;
+      // ③ 配信日を取得（script除去前のdocから標準メタタグを検索）
+      var dateAttrs = [
+        'meta[property="article:published_time"]',
+        'meta[name="pubdate"]',
+        'meta[itemprop="datePublished"]',
+        'meta[name="date"]',
+        'time[datetime]'
+      ];
+      for (var di = 0; di < dateAttrs.length; di++) {
+        var dateEl = doc.querySelector(dateAttrs[di]);
+        if (!dateEl) continue;
+        var dateStr = dateEl.getAttribute('content') || dateEl.getAttribute('datetime') || '';
+        if (!dateStr) continue;
+        var d = new Date(dateStr);
+        if (!isNaN(d.getTime())) { result.pubDate = d; break; }
       }
 
-      // ③ 正規表現照合（be-story.jp の日付+PRパターン等）
-      var regexes = prConfig.pr_regexes || [];
-      for (var ri = 0; ri < regexes.length; ri++) {
-        if (new RegExp(regexes[ri]).test(content)) return true;
-      }
-      return false;
+      return result;
     }
 
-    // 全プロキシを並列で試し、最初に有効なレスポンス（100字超）を返したもので判定する
-    // 逐次フォールバックだとコールドキャッシュ時のタイムアウト待ちが積み重なるため並列化する
+    // 全プロキシを並列で試し、最初に有効なレスポンスで判定する
     function checkLink(link) {
-      if (!link.url || proxyUrls.length === 0) return Promise.resolve(null);
+      if (!link.url || proxyUrls.length === 0) return Promise.resolve({ isPR: false, pubDate: null });
 
       return new Promise(function(resolve) {
         var settled = 0;
@@ -442,10 +458,10 @@
             var valid = html && html !== '__timeout__' && html !== '__error__' && html.length > 100;
             if (!done && valid) {
               done = true;
-              resolve(isPR(html, link.url) ? link : null);
+              resolve(analyzeHTML(html, link.url));
             } else if (settled === proxyUrls.length && !done) {
               done = true;
-              resolve(null);
+              resolve({ isPR: false, pubDate: null });
             }
           });
         });
@@ -459,11 +475,25 @@
     return Promise.all(promises).then(function(checked) {
       var prResults = [];
       for (var i = 0; i < checked.length; i++) {
-        if (checked[i]) {
+        var c = checked[i];
+        var num = i + 1;
+        if (c.isPR) {
           prResults.push({
             type: 'error',
-            label: '関連リンク' + (i + 1) + ' PR記事',
-            message: 'PR記事が含まれています:\n' + checked[i].url
+            label: '関連リンク' + num + ' PR記事',
+            message: 'PR記事が含まれています:\n' + links[i].url,
+            scrollTarget: linksTable
+          });
+        }
+        if (c.pubDate && c.pubDate < limitDate) {
+          var y = c.pubDate.getFullYear();
+          var m = ('0' + (c.pubDate.getMonth() + 1)).slice(-2);
+          var d = ('0' + c.pubDate.getDate()).slice(-2);
+          prResults.push({
+            type: 'warn',
+            label: '関連リンク' + num + ' 配信日',
+            message: '配信日が' + oldMonths + 'ヶ月以上前です（' + y + '/' + m + '/' + d + '）:\n' + links[i].url,
+            scrollTarget: linksTable
           });
         }
       }
