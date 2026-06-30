@@ -55,7 +55,7 @@
   "related_link_prefix": "▶",
   "pr_check": {
     "enabled": true,
-    "proxy_urls": ["https://api.allorigins.win/raw?url=", "https://api.codetabs.com/v1/proxy?quest="],
+    "proxy_urls": ["https://magacol-proxy.akane-kanazawa21.workers.dev/?url="],
     "pr_selector": "#Read_st",
     "pr_texts": ["PR・お問合わせ先", "タイアップ広告"],
     "pr_regexes": ["\\d+\\/\\d+ PR "],
