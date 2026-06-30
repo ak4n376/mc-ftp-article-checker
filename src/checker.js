@@ -429,16 +429,37 @@
       return result;
     }
 
-    // 全プロキシを並列で試し、最初に有効なレスポンスで判定する
+    // レスポンスが「記事の完全なHTML」と言えるかを検証する
+    // 部分ページ・bot ブロックページ・プロキシのエラーページを「PRなし」の根拠にしないため
+    // 単なる長さ＋ドメイン一致では不十分（過去バグの原因）。閉じタグまで揃っていることを要求する
+    function isCompleteHTML(html, articleUrl) {
+      if (!html || html === '__timeout__' || html === '__error__') return false;
+      if (html.length < 1500) return false;
+      var domain = extractHostname(articleUrl);
+      if (domain && html.indexOf(domain) === -1) return false;
+      // 完全なページなら body/html の閉じタグが存在する（途中で切れた応答を弾く）
+      if (html.indexOf('</body>') === -1 && html.indexOf('</html>') === -1) return false;
+      return true;
+    }
+
+    // 全プロキシを並列で試す。判定方針は「速さより正しさ」「PR陽性を優先」:
+    //   - どれか1つでもPRを検出したら即PR確定（陽性は取りこぼさない）
+    //   - 全プロキシが「完全なHTMLで、かつPRなし」で揃って初めて「PRなし」と確定
+    //   - 完全なHTMLが1つも得られなければ status:'unchecked'（無言でOKにしない）
     function checkLink(link) {
-      if (!link.url || proxyUrls.length === 0) return Promise.resolve({ isPR: false, pubDate: null });
+      if (!link.url || proxyUrls.length === 0) {
+        return Promise.resolve({ status: 'unchecked', isPR: false, pubDate: null });
+      }
 
       return new Promise(function(resolve) {
         var settled = 0;
         var done = false;
+        var bestComplete = null; // 完全なHTMLで得た「PRなし」解析結果（配信日取得用に保持）
 
         proxyUrls.forEach(function(proxyBase) {
-          var proxyUrl = proxyBase + encodeURIComponent(link.url);
+          // プロキシのキャッシュに残った古い／不完全な応答を避けるためキャッシュバスターを付ける
+          var cb = (link.url.indexOf('?') === -1 ? '?' : '&') + '_cb=' + Date.now();
+          var proxyUrl = proxyBase + encodeURIComponent(link.url + cb);
           var timerId;
           var timeoutP = new Promise(function(res) {
             timerId = setTimeout(function() { res('__timeout__'); }, 12000);
@@ -455,13 +476,27 @@
           ]).then(function(html) {
             clearTimeout(timerId);
             settled++;
-            var valid = html && html !== '__timeout__' && html !== '__error__' && html.length > 100;
-            if (!done && valid) {
+            if (done) return;
+
+            if (isCompleteHTML(html, link.url)) {
+              var a = analyzeHTML(html, link.url);
+              if (a.isPR) {
+                // 陽性は1つでも見つかれば即確定（他プロキシの不完全応答に負けない）
+                done = true;
+                resolve({ status: 'ok', isPR: true, pubDate: a.pubDate });
+                return;
+              }
+              if (!bestComplete) bestComplete = a; // 完全＆PRなし → 候補として保持
+            }
+
+            if (settled === proxyUrls.length) {
               done = true;
-              resolve(analyzeHTML(html, link.url));
-            } else if (settled === proxyUrls.length && !done) {
-              done = true;
-              resolve({ isPR: false, pubDate: null });
+              if (bestComplete) {
+                resolve({ status: 'ok', isPR: false, pubDate: bestComplete.pubDate });
+              } else {
+                // 完全なHTMLが1つも得られなかった → 判定不能（手動確認を促す）
+                resolve({ status: 'unchecked', isPR: false, pubDate: null });
+              }
             }
           });
         });
@@ -482,6 +517,15 @@
             type: 'error',
             label: '関連リンク' + num + ' PR記事',
             message: 'PR記事が含まれています:\n' + links[i].url,
+            scrollTarget: linksTable
+          });
+        }
+        // 判定不能（通信失敗・不完全応答）は無言でOKにせず手動確認を促す
+        if (c.status === 'unchecked') {
+          prResults.push({
+            type: 'warn',
+            label: '関連リンク' + num + ' PR・配信日',
+            message: '自動チェックできませんでした。PR記事・配信日を手動で確認してください:\n' + links[i].url,
             scrollTarget: linksTable
           });
         }
