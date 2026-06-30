@@ -409,7 +409,7 @@
         }
       }
 
-      // ③ 配信日を取得（script除去前のdocから標準メタタグを検索）
+      // ③ 配信日を取得（標準メタタグ → time[datetime] の順）
       var dateAttrs = [
         'meta[property="article:published_time"]',
         'meta[name="pubdate"]',
@@ -424,6 +424,14 @@
         if (!dateStr) continue;
         var d = new Date(dateStr);
         if (!isNaN(d.getTime())) { result.pubDate = d; break; }
+      }
+      // メタタグに無い場合は JSON-LD の datePublished をフォールバックで使う（美ST等）
+      if (!result.pubDate) {
+        var jm = html.match(/"datePublished"\s*:\s*"([^"]+)"/);
+        if (jm) {
+          var jd = new Date(jm[1]);
+          if (!isNaN(jd.getTime())) result.pubDate = jd;
+        }
       }
 
       return result;
@@ -442,64 +450,61 @@
       return true;
     }
 
-    // 全プロキシを並列で試す。判定方針は「速さより正しさ」「PR陽性を優先」:
-    //   - どれか1つでもPRを検出したら即PR確定（陽性は取りこぼさない）
-    //   - 全プロキシが「完全なHTMLで、かつPRなし」で揃って初めて「PRなし」と確定
+    // 1回分のfetch（10秒タイムアウト付き）。失敗時はセンチネル文字列を返す
+    function fetchHTML(proxyUrl) {
+      var timerId;
+      var timeoutP = new Promise(function(res) {
+        timerId = setTimeout(function() { res('__timeout__'); }, 10000);
+      });
+      return Promise.race([
+        fetchFn(proxyUrl)
+          .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+          })
+          .catch(function() { return '__error__'; }),
+        timeoutP
+      ]).then(function(html) {
+        clearTimeout(timerId);
+        return html;
+      });
+    }
+
+    // 1プロキシを最大2回試し、完全なHTMLが得られたら返す（無料プロキシの一時的失敗対策）
+    // キャッシュバスターは付けない: プロキシのキャッシュを潰すと低速化・レート制限を招くため
+    function attemptProxy(link, proxyBase) {
+      var proxyUrl = proxyBase + encodeURIComponent(link.url);
+      return fetchHTML(proxyUrl).then(function(html) {
+        if (isCompleteHTML(html, link.url)) return html;
+        return fetchHTML(proxyUrl).then(function(html2) {
+          return isCompleteHTML(html2, link.url) ? html2 : null;
+        });
+      });
+    }
+
+    // 全プロキシを並列（各自リトライ付き）で試す。判定方針は「速さより正しさ」「PR陽性優先」:
+    //   - 完全なHTMLを返したプロキシのうち1つでもPRを検出したらPR確定
     //   - 完全なHTMLが1つも得られなければ status:'unchecked'（無言でOKにしない）
     function checkLink(link) {
       if (!link.url || proxyUrls.length === 0) {
         return Promise.resolve({ status: 'unchecked', isPR: false, pubDate: null });
       }
-
-      return new Promise(function(resolve) {
-        var settled = 0;
-        var done = false;
-        var bestComplete = null; // 完全なHTMLで得た「PRなし」解析結果（配信日取得用に保持）
-
-        proxyUrls.forEach(function(proxyBase) {
-          // プロキシのキャッシュに残った古い／不完全な応答を避けるためキャッシュバスターを付ける
-          var cb = (link.url.indexOf('?') === -1 ? '?' : '&') + '_cb=' + Date.now();
-          var proxyUrl = proxyBase + encodeURIComponent(link.url + cb);
-          var timerId;
-          var timeoutP = new Promise(function(res) {
-            timerId = setTimeout(function() { res('__timeout__'); }, 12000);
-          });
-
-          Promise.race([
-            fetchFn(proxyUrl)
-              .then(function(r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.text();
-              })
-              .catch(function() { return '__error__'; }),
-            timeoutP
-          ]).then(function(html) {
-            clearTimeout(timerId);
-            settled++;
-            if (done) return;
-
-            if (isCompleteHTML(html, link.url)) {
-              var a = analyzeHTML(html, link.url);
-              if (a.isPR) {
-                // 陽性は1つでも見つかれば即確定（他プロキシの不完全応答に負けない）
-                done = true;
-                resolve({ status: 'ok', isPR: true, pubDate: a.pubDate });
-                return;
-              }
-              if (!bestComplete) bestComplete = a; // 完全＆PRなし → 候補として保持
-            }
-
-            if (settled === proxyUrls.length) {
-              done = true;
-              if (bestComplete) {
-                resolve({ status: 'ok', isPR: false, pubDate: bestComplete.pubDate });
-              } else {
-                // 完全なHTMLが1つも得られなかった → 判定不能（手動確認を促す）
-                resolve({ status: 'unchecked', isPR: false, pubDate: null });
-              }
-            }
-          });
-        });
+      var attempts = proxyUrls.map(function(proxyBase) {
+        return attemptProxy(link, proxyBase);
+      });
+      return Promise.all(attempts).then(function(htmls) {
+        var anyComplete = false;
+        var isPR = false;
+        var pubDate = null;
+        for (var i = 0; i < htmls.length; i++) {
+          if (!htmls[i]) continue;
+          anyComplete = true;
+          var a = analyzeHTML(htmls[i], link.url);
+          if (a.isPR) isPR = true;
+          if (a.pubDate && !pubDate) pubDate = a.pubDate;
+        }
+        if (!anyComplete) return { status: 'unchecked', isPR: false, pubDate: null };
+        return { status: 'ok', isPR: isPR, pubDate: pubDate };
       });
     }
 
@@ -509,23 +514,16 @@
 
     return Promise.all(promises).then(function(checked) {
       var prResults = [];
+      var uncheckedCount = 0;
       for (var i = 0; i < checked.length; i++) {
         var c = checked[i];
         var num = i + 1;
+        if (c.status === 'unchecked') uncheckedCount++;
         if (c.isPR) {
           prResults.push({
             type: 'error',
             label: '関連リンク' + num + ' PR記事',
             message: 'PR記事が含まれています:\n' + links[i].url,
-            scrollTarget: linksTable
-          });
-        }
-        // 判定不能（通信失敗・不完全応答）は無言でOKにせず手動確認を促す
-        if (c.status === 'unchecked') {
-          prResults.push({
-            type: 'warn',
-            label: '関連リンク' + num + ' PR・配信日',
-            message: '自動チェックできませんでした。PR記事・配信日を手動で確認してください:\n' + links[i].url,
             scrollTarget: linksTable
           });
         }
@@ -540,6 +538,17 @@
             scrollTarget: linksTable
           });
         }
+      }
+      // 通信失敗で自動チェックできなかったリンクがあれば、まとめて1件だけ通知する
+      // （リンクごとに警告を出すと通信障害時に画面が埋まり実用的でないため）
+      if (uncheckedCount > 0) {
+        prResults.push({
+          type: 'warn',
+          label: 'PR・配信日チェック',
+          message: '通信状況により ' + uncheckedCount + '件 のリンクを自動チェックできませんでした。'
+            + '時間をおいて再実行するか、PR記事・配信日を手動で確認してください。',
+          scrollTarget: linksTable
+        });
       }
       return prResults;
     });
