@@ -215,30 +215,31 @@
       }
     }
 
-    // ③ 画像設定漏れ ＆ 同一画像の重複使用チェック
+    // ③ 画像チェック（記事全体で1枚も無ければ要修正）＆ 同一画像の重複使用チェック
+    // 各段落への画像設定は必須ではないため、段落単位では警告しない
     var paragraphTables = getParagraphTables();
     var imageSrcMap = {}; // src → [段落名, ...]
+    var totalImageCount = 0;
     for (var j = 0; j < paragraphTables.length; j++) {
       var ptable = paragraphTables[j];
       var theadTh = ptable.querySelector('thead th');
       var paraName = theadTh ? theadTh.textContent.trim() : '第' + (j + 1) + '段落';
       var imageTd = findTdInTable(ptable, '【画像】ファイル');
-      // 【画像】ファイル 行が無い段落は画像チェック対象外
       if (!imageTd) continue;
       var img = imageTd.querySelector('img');
       var src = img ? (img.getAttribute('src') || '') : '';
-      // 画像設定漏れ: img自体が無い or src が空 → 要修正
-      if (!src) {
-        results.push({
-          type: 'error',
-          label: '画像なし（' + paraName + '）',
-          message: 'この段落に画像が設定されていません',
-          scrollTarget: ptable
-        });
-        continue;
-      }
+      if (!src) continue;
+      totalImageCount++;
       if (!imageSrcMap[src]) imageSrcMap[src] = [];
       imageSrcMap[src].push(paraName);
+    }
+    // 記事全体で画像が1枚も無い場合のみ要修正
+    if (paragraphTables.length > 0 && totalImageCount === 0) {
+      results.push({
+        type: 'error',
+        label: '画像なし',
+        message: '記事全体で画像が1枚も設定されていません'
+      });
     }
     for (var src in imageSrcMap) {
       if (imageSrcMap[src].length >= 2) {
