@@ -215,7 +215,7 @@
       }
     }
 
-    // ③ 同一画像の重複使用チェック
+    // ③ 画像設定漏れ ＆ 同一画像の重複使用チェック
     var paragraphTables = getParagraphTables();
     var imageSrcMap = {}; // src → [段落名, ...]
     for (var j = 0; j < paragraphTables.length; j++) {
@@ -223,11 +223,20 @@
       var theadTh = ptable.querySelector('thead th');
       var paraName = theadTh ? theadTh.textContent.trim() : '第' + (j + 1) + '段落';
       var imageTd = findTdInTable(ptable, '【画像】ファイル');
+      // 【画像】ファイル 行が無い段落は画像チェック対象外
       if (!imageTd) continue;
       var img = imageTd.querySelector('img');
-      if (!img) continue;
-      var src = img.getAttribute('src') || '';
-      if (!src) continue;
+      var src = img ? (img.getAttribute('src') || '') : '';
+      // 画像設定漏れ: img自体が無い or src が空 → 要修正
+      if (!src) {
+        results.push({
+          type: 'error',
+          label: '画像なし（' + paraName + '）',
+          message: 'この段落に画像が設定されていません',
+          scrollTarget: ptable
+        });
+        continue;
+      }
       if (!imageSrcMap[src]) imageSrcMap[src] = [];
       imageSrcMap[src].push(paraName);
     }
