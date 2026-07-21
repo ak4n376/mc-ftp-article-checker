@@ -89,7 +89,11 @@
         currentTitle = td.textContent.trim();
       } else if (label === 'URL' && currentTitle !== null) {
         var a = td.querySelector('a');
-        links.push({ title: currentTitle, url: a ? a.getAttribute('href') : '' });
+        var href = a ? (a.getAttribute('href') || '') : '';
+        // 入力欄に紛れ込んだ前後の空白（半角/全角/改行）を除去する
+        // ブラウザは先頭空白を無視して開けるため、これを無効URL扱いにしない
+        href = href.replace(/^[\s　]+|[\s　]+$/g, '');
+        links.push({ title: currentTitle, url: href });
         currentTitle = null;
       }
     }
@@ -98,7 +102,8 @@
 
   // URL からホスト名を取得（正規表現で処理し古い Chrome でも動くようにする）
   function extractHostname(url) {
-    var m = String(url).match(/^https?:\/\/([^\/\?#]+)/);
+    // 前後の空白（半角/全角/改行）で判定が崩れないよう除去してから照合する
+    var m = String(url).replace(/^[\s　]+|[\s　]+$/g, '').match(/^https?:\/\/([^\/\?#]+)/);
     return m ? m[1] : null;
   }
 
