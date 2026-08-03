@@ -200,6 +200,20 @@
         });
       }
 
+      // 使用不可URL（ショッピングカテゴリ等）: URLに指定文字列を含む場合は要修正
+      var ngParts = config.related_link_ng_url_parts || [];
+      for (var np = 0; np < ngParts.length; np++) {
+        if (link.url && link.url.indexOf(ngParts[np]) !== -1) {
+          results.push({
+            type: 'error',
+            label: '関連リンク' + num + ' URL',
+            message: 'ショッピングカテゴリのURLは関連リンクに使用できません（「' + ngParts[np] + '」を含む）:\n' + link.url,
+            scrollTarget: relatedLinksTable
+          });
+          break;
+        }
+      }
+
       // ドメイン整合性（媒体が特定できている場合のみ）
       if (expectedDomain) {
         if (!link.url) {
@@ -351,12 +365,12 @@
       }
     }
 
-    // ⑥ PR記事チェック（allorigins.win 経由で非同期取得）
+    // ⑥ PR記事チェック＋SHOPPINGカテゴリチェック（Worker 経由で関連リンク記事を取得）
     var prConfig = config.pr_check;
     if (prConfig && prConfig.enabled && relatedLinks.length > 0) {
-      // 同期チェック結果を先に表示し「PR確認中」ローディング行を付ける
+      // 同期チェック結果を先に表示し「確認中」ローディング行を付ける
       showPanel(results, mediaName, expectedDomain, true);
-      checkPRArticles(relatedLinks, prConfig, relatedLinksTable).then(function(prResults) {
+      checkPRArticles(relatedLinks, prConfig, relatedLinksTable, config.shopping_check).then(function(prResults) {
         for (var p = 0; p < prResults.length; p++) results.push(prResults[p]);
         showPanel(results, mediaName, expectedDomain, false);
       }).catch(function() {
@@ -368,8 +382,8 @@
     }
   }
 
-  // 関連リンクのPR記事チェック＋配信日チェック（CORS プロキシ経由・全プロキシ並列試行）
-  function checkPRArticles(links, prConfig, linksTable) {
+  // 関連リンクのPR記事チェック＋配信日チェック＋SHOPPINGカテゴリチェック（Worker 経由・並列取得）
+  function checkPRArticles(links, prConfig, linksTable, shoppingConfig) {
     var proxyUrls = prConfig.proxy_urls || (prConfig.proxy_url ? [prConfig.proxy_url] : []);
     var selector = prConfig.pr_selector;
     var fetchFn = window._MAGACOL_FETCH || fetch;
@@ -379,9 +393,9 @@
     var limitDate = new Date();
     limitDate.setMonth(limitDate.getMonth() - oldMonths);
 
-    // HTMLを解析してPR判定と配信日を同時に取得する
+    // HTMLを解析してPR判定・配信日・SHOPPINGカテゴリを同時に取得する
     function analyzeHTML(html, articleUrl) {
-      var result = { isPR: false, pubDate: null };
+      var result = { isPR: false, pubDate: null, isShopping: false };
       if (!html) return result;
 
       // ドメイン検証: プロキシのエラーページを弾く
@@ -392,6 +406,14 @@
 
       var parser = new DOMParser();
       var doc = parser.parseFromString(html, 'text/html');
+
+      // SHOPPINGカテゴリ判定（例: STORYの .entry-cat 内に "SHOPPING" リンク）
+      if (shoppingConfig && shoppingConfig.enabled) {
+        var catEl = doc.querySelector(shoppingConfig.selector);
+        if (catEl && catEl.textContent.indexOf(shoppingConfig.text) !== -1) {
+          result.isShopping = true;
+        }
+      }
 
       // ① CSSセレクタ要素内テキストでPR判定
       if (selector) {
@@ -502,7 +524,7 @@
     //   - 完全なHTMLが1つも得られなければ status:'unchecked'（無言でOKにしない）
     function checkLink(link) {
       if (!link.url || proxyUrls.length === 0) {
-        return Promise.resolve({ status: 'unchecked', isPR: false, pubDate: null });
+        return Promise.resolve({ status: 'unchecked', isPR: false, pubDate: null, isShopping: false });
       }
       var attempts = proxyUrls.map(function(proxyBase) {
         return attemptProxy(link, proxyBase);
@@ -511,15 +533,17 @@
         var anyComplete = false;
         var isPR = false;
         var pubDate = null;
+        var isShopping = false;
         for (var i = 0; i < htmls.length; i++) {
           if (!htmls[i]) continue;
           anyComplete = true;
           var a = analyzeHTML(htmls[i], link.url);
           if (a.isPR) isPR = true;
+          if (a.isShopping) isShopping = true;
           if (a.pubDate && !pubDate) pubDate = a.pubDate;
         }
-        if (!anyComplete) return { status: 'unchecked', isPR: false, pubDate: null };
-        return { status: 'ok', isPR: isPR, pubDate: pubDate };
+        if (!anyComplete) return { status: 'unchecked', isPR: false, pubDate: null, isShopping: false };
+        return { status: 'ok', isPR: isPR, pubDate: pubDate, isShopping: isShopping };
       });
     }
 
@@ -539,6 +563,14 @@
             type: 'error',
             label: '関連リンク' + num + ' PR記事',
             message: 'PR記事が含まれています:\n' + links[i].url,
+            scrollTarget: linksTable
+          });
+        }
+        if (c.isShopping) {
+          prResults.push({
+            type: 'error',
+            label: '関連リンク' + num + ' SHOPPING',
+            message: 'SHOPPINGカテゴリの記事は関連リンクに使用できません:\n' + links[i].url,
             scrollTarget: linksTable
           });
         }
