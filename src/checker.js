@@ -107,6 +107,11 @@
     return m ? m[1] : null;
   }
 
+  // URL比較用の正規化（前後空白・末尾スラッシュの揺れを吸収）
+  function normalizeUrl(url) {
+    return String(url).replace(/^[\s　]+|[\s　]+$/g, '').replace(/\/+$/, '');
+  }
+
   // ===== チェックロジック =====
 
   function clearHighlights() {
@@ -208,6 +213,21 @@
             type: 'error',
             label: '関連リンク' + num + ' URL',
             message: 'ショッピングカテゴリのURLは関連リンクに使用できません（「' + ngParts[np] + '」を含む）:\n' + link.url,
+            scrollTarget: relatedLinksTable
+          });
+          break;
+        }
+      }
+
+      // 使用不可URL（完全一致のブロックリスト）: 特定URLを名指しで禁止する
+      // 末尾スラッシュ・前後空白の揺れを吸収して比較する
+      var ngUrls = config.related_link_ng_urls || [];
+      for (var nu = 0; nu < ngUrls.length; nu++) {
+        if (link.url && normalizeUrl(link.url) === normalizeUrl(ngUrls[nu])) {
+          results.push({
+            type: 'error',
+            label: '関連リンク' + num + ' URL',
+            message: 'この記事は関連リンクに使用できません（使用不可リスト登録済み）:\n' + link.url,
             scrollTarget: relatedLinksTable
           });
           break;
